@@ -46,7 +46,7 @@ st.title("⚡ Zeus Chatbot (created by Shivang)")
 st.write("Hey user 👑! Your AI chatbot is live, remembers what you say, and is ready to talk.")
 
 # ✅ Display past conversation (from database)
-st.subheader("📜 Conversation History (this session)")
+st.subheader("📜 Conversatio9*n History (this session)")
 history = logger.get_history(SESSION_ID)
 if history:
 	for _id, role, message, created_at in history:
@@ -109,3 +109,23 @@ if st.button("📁 Export History to CSV"):
 	output_file = f"history_{SESSION_ID}.csv"
 	logger.export_history_csv(SESSION_ID, output_file)
 	st.success(f"Exported chat history to {output_file}. You can find it in your project folder.")
+
+	# ==========================================
+	# STEP 6: LONG-TERM MEMORY CONTROLS
+	# ==========================================
+	st.markdown("---")
+	st.subheader("🧠 Long-Term Memory Controls")
+
+	if st.button("💾 Save This Chat to Memory"):
+		if logger.save_memory(SESSION_ID):
+			st.success("✅ Conversation saved to long-term memory.")
+		else:
+			st.warning("⚠️ Nothing to save yet.")
+
+	if st.button("📂 Load Saved Memory"):
+		if logger.load_memory(SESSION_ID):
+			st.success("✅ Loaded your saved memory successfully.")
+			st.rerun()  # refresh page to show loaded chat
+		else:
+			st.warning("⚠️ No saved memory found for this user.")
+
