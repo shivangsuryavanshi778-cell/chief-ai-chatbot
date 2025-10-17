@@ -23,8 +23,20 @@ if not st.session_state.username:
             st.warning("Please enter your name to continue.")
         else:
             st.session_state.username = username_input.strip()
-            st.experimental_rerun()
-    st.stop()  # Prevents the rest of the app from loading until logged in
+			# 🔄 Safe rerun for all Streamlit versions
+			if st.button("Start Chat"):
+				if not username_input.strip():
+					st.warning("Please enter your name to continue.")
+				else:
+					st.session_state.username = username_input.strip()
+					if hasattr(st, "rerun"):
+						st.rerun()
+					elif hasattr(st, "experimental_rerun"):
+						st.experimental_rerun()
+					else:
+						st.info("✅ Logged in! Please manually refresh if the chat doesn't load automatically.")
+
+st.stop()  # Prevents the rest of the app from loading until logged in
 
 USERNAME = st.session_state.username
 st.sidebar.success(f"🧠 Logged in as: {USERNAME}")
