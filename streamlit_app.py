@@ -42,7 +42,7 @@ else:
 # ==========================================
 # STEP 3: Chat UI
 # ==========================================
-st.title("🤖 Shivang's AI Chatbot")
+st.title("⚡ Zeus Chatbot (created by Shivang)")
 st.write("Hey user 👑! Your AI chatbot is live, remembers what you say, and is ready to talk.")
 
 # ✅ Display past conversation (from database)
