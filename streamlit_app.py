@@ -122,17 +122,20 @@ with colA:
 			st.warning("⚠️ " + msg)
 
 with colB:
-	if st.button("📂 Load Saved Memory"):
-		success, msg = logger.load_memory(SESSION_ID)
-		if success:
-			st.success("✅ " + msg)
-			# 🔄 Streamlit rerun compatibility for all versions
-			if hasattr(st, "rerun"):
-				st.rerun()
-			elif hasattr(st, "experimental_rerun"):
-				st.experimental_rerun()
-			else:
-				st.warning("⚠️ Unable to rerun Streamlit — please refresh manually.")
-
-		else:
-			st.warning("⚠️ " + msg)
+    if st.button("📂 Load Saved Memory"):
+        success, msg = logger.load_memory(SESSION_ID)
+        if success:
+            st.success("✅ " + msg)
+            st.info("Memory loaded successfully. Please click **Refresh Page** below to view it.")
+            # Offer a manual refresh button instead of rerun
+            if st.button("🔄 Refresh Page"):
+                st.experimental_singleton.clear() if hasattr(st, "experimental_singleton") else None
+                st.cache_data.clear() if hasattr(st, "cache_data") else None
+                st.cache_resource.clear() if hasattr(st, "cache_resource") else None
+                st.experimental_memo.clear() if hasattr(st, "experimental_memo") else None
+                st.session_state.clear()
+                st.experimental_rerun() if hasattr(st, "experimental_rerun") else (
+                    st.rerun() if hasattr(st, "rerun") else st.warning("Please reload manually.")
+                )
+        else:
+            st.warning("⚠️ " + msg)
