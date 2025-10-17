@@ -42,8 +42,8 @@ else:
 # ==========================================
 # STEP 3: Chat UI
 # ==========================================
-st.title("🤖 Chief AI Chatbot (Now With Memory 🧠)")
-st.write("Hey Chief 👑! Your AI chatbot is live, remembers what you say, and is ready to talk.")
+st.title("🤖 Shivang's AI Chatbot")
+st.write("Hey user 👑! Your AI chatbot is live, remembers what you say, and is ready to talk.")
 
 # ✅ Display past conversation (from database)
 st.subheader("📜 Conversation History (this session)")
