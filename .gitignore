@@ -1,4 +1,12 @@
+# Ignore local secrets and environment files
 .env
 __pycache__/
 .venv/
 *.pyc
+conversations.db
+.streamlit/
+*.toml
+# Ignore Python cache files and temporary data
+__pycache__/
+*.pyc
+*.pyo

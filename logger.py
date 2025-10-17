@@ -1,35 +1,104 @@
 """
 logger.py
-- Minimal logging: SQLite storage or CSV fallback
-- Stores timestamp, user_id, message, intent, confidence, response
+Chief AI Chatbot — Conversation Logger
+-------------------------------------
+• Uses SQLite for secure, local message logging
+• Thread-safe for Streamlit
+• No dependencies on external files
+• Supports conversation history, clear, and export
 """
 
 import sqlite3
-import time
-from auth import LOG_PATH
+import os
+from datetime import datetime
+from typing import List, Tuple, Optional
 
-# Initialize DB
-conn = sqlite3.connect(LOG_PATH, check_same_thread=False)
-cursor = conn.cursor()
-cursor.execute("""
-CREATE TABLE IF NOT EXISTS interactions (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    ts INTEGER,
-    user_id TEXT,
-    message TEXT,
-    intent TEXT,
-    confidence REAL,
-    response TEXT
-)
-""")
-conn.commit()
+# ==========================
+# DATABASE CONFIG
+# ==========================
+DB_FILENAME = os.path.join(os.path.dirname(__file__), "conversations.db")
 
-def log_interaction(user_id, message, nlu_result, response_text):
-    ts = int(time.time())
-    intent = nlu_result.get("intent") if nlu_result else None
-    confidence = float(nlu_result.get("confidence", 0.0)) if nlu_result else 0.0
-    cursor.execute("""
-    INSERT INTO interactions (ts, user_id, message, intent, confidence, response)
-    VALUES (?, ?, ?, ?, ?, ?)
-    """, (ts, str(user_id), message[:2000], intent, confidence, response_text[:2000]))
+# ==========================
+# SAFE CONNECTION HANDLER
+# ==========================
+def _get_conn():
+    """Create and return a thread-safe SQLite connection."""
+    return sqlite3.connect(DB_FILENAME, check_same_thread=False)
+
+# ==========================
+# INITIALIZATION
+# ==========================
+def init_db():
+    """Create DB and messages table if they don’t exist."""
+    conn = _get_conn()
+    cur = conn.cursor()
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS messages (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        session_id TEXT NOT NULL,
+        role TEXT NOT NULL,          -- 'user' or 'assistant'
+        message TEXT NOT NULL,
+        created_at TEXT NOT NULL     -- ISO timestamp
+    )
+    """)
     conn.commit()
+    conn.close()
+
+# ==========================
+# WRITE LOG
+# ==========================
+def log_message(session_id: str, role: str, message: str):
+    """Save one message into the database."""
+    conn = _get_conn()
+    cur = conn.cursor()
+    cur.execute(
+        "INSERT INTO messages (session_id, role, message, created_at) VALUES (?, ?, ?, ?)",
+        (session_id, role, message[:2000], datetime.utcnow().isoformat())
+    )
+    conn.commit()
+    conn.close()
+
+# ==========================
+# READ LOG
+# ==========================
+def get_history(session_id: str, limit: Optional[int] = None) -> List[Tuple[int, str, str, str]]:
+    """Fetch chat history for a session."""
+    conn = _get_conn()
+    cur = conn.cursor()
+    if limit:
+        cur.execute(
+            "SELECT id, role, message, created_at FROM messages WHERE session_id = ? ORDER BY id ASC LIMIT ?",
+            (session_id, limit)
+        )
+    else:
+        cur.execute(
+            "SELECT id, role, message, created_at FROM messages WHERE session_id = ? ORDER BY id ASC",
+            (session_id,)
+        )
+    rows = cur.fetchall()
+    conn.close()
+    return rows
+
+# ==========================
+# CLEAR HISTORY
+# ==========================
+def clear_history(session_id: str):
+    """Delete all history for a given session."""
+    conn = _get_conn()
+    cur = conn.cursor()
+    cur.execute("DELETE FROM messages WHERE session_id = ?", (session_id,))
+    conn.commit()
+    conn.close()
+
+# ==========================
+# EXPORT TO CSV
+# ==========================
+def export_history_csv(session_id: str, out_path: str):
+    """Export a session’s conversation to a CSV file."""
+    import csv
+    rows = get_history(session_id)
+    with open(out_path, "w", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        writer.writerow(["id", "role", "message", "created_at"])
+        for r in rows:
+            writer.writerow(r)
