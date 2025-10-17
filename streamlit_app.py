@@ -126,6 +126,13 @@ with colB:
 		success, msg = logger.load_memory(SESSION_ID)
 		if success:
 			st.success("✅ " + msg)
-			st.experimental_rerun()
+			# 🔄 Streamlit rerun compatibility for all versions
+			if hasattr(st, "rerun"):
+				st.rerun()
+			elif hasattr(st, "experimental_rerun"):
+				st.experimental_rerun()
+			else:
+				st.warning("⚠️ Unable to rerun Streamlit — please refresh manually.")
+
 		else:
 			st.warning("⚠️ " + msg)
