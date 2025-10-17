@@ -1,15 +1,16 @@
 """
 logger.py
-Chief AI Chatbot — Conversation Logger
+Zeus AI Chatbot — Conversation Logger
 -------------------------------------
 • Uses SQLite for secure, local message logging
 • Thread-safe for Streamlit
-• No dependencies on external files
-• Supports conversation history, clear, and export
+• Supports conversation history, clear, export, and long-term memory save/load
 """
 
 import sqlite3
 import os
+import json
+import errno
 from datetime import datetime
 from typing import List, Tuple, Optional
 
@@ -36,9 +37,9 @@ def init_db():
     CREATE TABLE IF NOT EXISTS messages (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         session_id TEXT NOT NULL,
-        role TEXT NOT NULL,          -- 'user' or 'assistant'
+        role TEXT NOT NULL,
         message TEXT NOT NULL,
-        created_at TEXT NOT NULL     -- ISO timestamp
+        created_at TEXT NOT NULL
     )
     """)
     conn.commit()
@@ -102,60 +103,58 @@ def export_history_csv(session_id: str, out_path: str):
         writer.writerow(["id", "role", "message", "created_at"])
         for r in rows:
             writer.writerow(r)
+
 # ==========================
 # SAVE / LOAD LONG-TERM MEMORY
 # ==========================
 
-import json
+def save_memory(session_id: str) -> (bool, str):
+    """Save chat history to a JSON file for long-term storage."""
+    try:
+        rows = get_history(session_id)
+        if not rows:
+            return False, "No conversation found to save."
 
-def save_memory(user_id: str):
-    """
-    Copy the user's last session chat from messages table
-    into a permanent JSON file named memory_<user_id>.json
-    """
-    rows = get_history(user_id)
-    if not rows:
-        return False
+        mem_dir = os.path.join(os.path.dirname(__file__), "memory_store")
+        os.makedirs(mem_dir, exist_ok=True)
 
-    # Create export folder if it doesn't exist
-    mem_dir = os.path.join(os.path.dirname(__file__), "memory_store")
-    os.makedirs(mem_dir, exist_ok=True)
+        history = [
+            {"role": role, "message": msg, "created_at": ts}
+            for _, role, msg, ts in rows
+        ]
 
-    # Prepare data
-    history = [{"role": role, "message": msg, "created_at": ts}
-               for _, role, msg, ts in rows]
+        path = os.path.join(mem_dir, f"memory_{session_id}.json")
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(history, f, ensure_ascii=False, indent=2)
 
-    # Write JSON
-    path = os.path.join(mem_dir, f"memory_{user_id}.json")
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(history, f, ensure_ascii=False, indent=2)
-    return True
+        return True, f"Conversation saved successfully ({len(history)} messages)."
+    except Exception as e:
+        return False, f"Error saving memory: {e}"
 
 
-def load_memory(user_id: str):
-    """
-    Load a saved memory_<user_id>.json and reinsert into messages table
-    so conversation continues from last saved chat.
-    """
-    mem_dir = os.path.join(os.path.dirname(__file__), "memory_store")
-    path = os.path.join(mem_dir, f"memory_{user_id}.json")
+def load_memory(session_id: str) -> (bool, str):
+    """Load saved chat history from JSON back into the database."""
+    try:
+        mem_dir = os.path.join(os.path.dirname(__file__), "memory_store")
+        path = os.path.join(mem_dir, f"memory_{session_id}.json")
 
-    if not os.path.exists(path):
-        return False
+        if not os.path.exists(path):
+            return False, "No saved memory found for this user."
 
-    with open(path, "r", encoding="utf-8") as f:
-        history = json.load(f)
+        with open(path, "r", encoding="utf-8") as f:
+            history = json.load(f)
 
-    # clear current temp history first
-    clear_history(user_id)
+        clear_history(session_id)
 
-    conn = _get_conn()
-    cur = conn.cursor()
-    for h in history:
-        cur.execute(
-            "INSERT INTO messages (session_id, role, message, created_at) VALUES (?, ?, ?, ?)",
-            (user_id, h["role"], h["message"], h["created_at"])
-        )
-    conn.commit()
-    conn.close()
-    return True
+        conn = _get_conn()
+        cur = conn.cursor()
+        for h in history:
+            cur.execute(
+                "INSERT INTO messages (session_id, role, message, created_at) VALUES (?, ?, ?, ?)",
+                (session_id, h["role"], h["message"], h["created_at"])
+            )
+        conn.commit()
+        conn.close()
+        return True, f"Loaded {len(history)} messages from saved memory."
+    except Exception as e:
+        return False, f"Error loading memory: {e}"
