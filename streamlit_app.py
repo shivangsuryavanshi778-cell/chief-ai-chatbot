@@ -23,27 +23,28 @@ if not st.session_state.username:
             st.warning("Please enter your name to continue.")
         else:
             st.session_state.username = username_input.strip()
-			# 🔄 Safe rerun for all Streamlit versions
-			if st.button("Start Chat"):
-				if not username_input.strip():
-					st.warning("Please enter your name to continue.")
-				else:
-					st.session_state.username = username_input.strip()
-					if hasattr(st, "rerun"):
-						st.rerun()
-					elif hasattr(st, "experimental_rerun"):
-						st.experimental_rerun()
-					else:
-						st.info("✅ Logged in! Please manually refresh if the chat doesn't load automatically.")
 
-st.stop()  # Prevents the rest of the app from loading until logged in
+            # 🔄 Safe rerun for all Streamlit versions
+            if hasattr(st, "rerun"):
+                st.rerun()
+            elif hasattr(st, "experimental_rerun"):
+                st.experimental_rerun()
+            else:
+                st.info("✅ Logged in! Please manually refresh if the chat doesn't load automatically.")
 
-USERNAME = st.session_state.username
-st.sidebar.success(f"🧠 Logged in as: {USERNAME}")
+else:
+    # ==========================================
+    # Continue rest of your chatbot code below
+    # ==========================================
+    # (everything that was grey before remains under this 'else')
+
 
 # ==========================================
 # STEP 2: Initialize DB & Load User Memory
 # ==========================================
+USERNAME = st.session_state.username
+st.sidebar.success(f"🧠 Logged in as: {USERNAME}")
+
 logger.init_db()
 USER_MEMORY = memory_manager.load_user_memory(USERNAME)
 
@@ -72,7 +73,6 @@ else:
 st.title(f"⚡ Zeus AI Chatbot (Welcome back, {USERNAME}!)")
 st.write("I remember our past conversations — let's continue where we left off.")
 
-# Show chat history (from logger)
 st.subheader("📜 Conversation History")
 history = logger.get_history(USERNAME)
 if history:
@@ -102,17 +102,21 @@ if st.button("Send"):
             "Authorization": f"Bearer {api_key}",
             "HTTP-Referer": "https://chief-ai-chatbot.streamlit.app",
             "X-Title": "ZeusAIChatbot",
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
         }
 
         combined_context = f"User memory: {USER_MEMORY}\nUser said: {user_input}"
 
         body = {
             "model": "gpt-3.5-turbo",
-            "messages": [{"role": "user", "content": combined_context}]
+            "messages": [{"role": "user", "content": combined_context}],
         }
 
-        response = requests.post("https://openrouter.ai/api/v1/chat/completions", headers=headers, json=body)
+        response = requests.post(
+            "https://openrouter.ai/api/v1/chat/completions",
+            headers=headers,
+            json=body,
+        )
 
         if response.status_code == 200:
             reply = response.json()["choices"][0]["message"]["content"]
@@ -122,7 +126,9 @@ if st.button("Send"):
             # 🧠 Update memory automatically
             USER_MEMORY["last_message"] = user_input
             USER_MEMORY["last_reply"] = reply
-            USER_MEMORY["conversation_count"] = USER_MEMORY.get("conversation_count", 0) + 1
+            USER_MEMORY["conversation_count"] = (
+                    USER_MEMORY.get("conversation_count", 0) + 1
+            )
             USER_MEMORY["last_interaction"] = datetime.utcnow().isoformat()
             memory_manager.save_user_memory(USERNAME, USER_MEMORY)
         else:
@@ -152,4 +158,9 @@ with col2:
 with col3:
     if st.button("🚪 Logout"):
         st.session_state.username = None
-        st.experimental_rerun()
+        if hasattr(st, "rerun"):
+            st.rerun()
+        elif hasattr(st, "experimental_rerun"):
+            st.experimental_rerun()
+        else:
+            st.info("Logged out — please refresh manually.")
